@@ -8,16 +8,26 @@ function text(value: unknown, max = 200): string {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
+/** Gera um CPF matematicamente válido (somente dígitos). */
 function randomCpf(): string {
-  const n = Array.from({ length: 9 }, () => Math.floor(Math.random() * 10));
-  const d1 =
-    ((n[0] * 10 + n[1] * 9 + n[2] * 8 + n[3] * 7 + n[4] * 6 + n[5] * 5 + n[6] * 4 + n[7] * 3 + n[8] * 2) % 11) % 10;
-  const d2 =
-    ((n[0] * 11 + n[1] * 10 + n[2] * 9 + n[3] * 8 + n[4] * 7 + n[5] * 6 + n[6] * 5 + n[7] * 4 + n[8] * 3 + d1 * 2) %
-      11) %
-    10;
-  const digits = [...n, d1, d2].join("");
-  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+  let n: number[];
+  do {
+    n = Array.from({ length: 9 }, () => Math.floor(Math.random() * 10));
+  } while (n.every((d) => d === n[0]));
+
+  const calc = (base: number[]) => {
+    const sum = base.reduce((acc, d, i) => acc + d * (base.length + 1 - i), 0);
+    const mod = sum % 11;
+    return mod < 2 ? 0 : 11 - mod;
+  };
+
+  const d1 = calc(n);
+  const d2 = calc([...n, d1]);
+  return [...n, d1, d2].join("");
+}
+
+function onlyDigits(value: string): string {
+  return value.replace(/\D/g, "");
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -49,11 +59,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const clientEmail =
     text(req.body?.client_email, 120) ||
     text(req.body?.email, 120) ||
-    `cliente_${Date.now()}@email.com`;
-  const clientPhone =
-    text(req.body?.client_phone, 30) || text(req.body?.phone, 30) || "(11) 99999-9999";
-  const clientDocument =
-    text(req.body?.client_document, 20) || text(req.body?.document, 20) || text(req.body?.cpf, 20) || randomCpf();
+    `cliente${Date.now()}@gmail.com`;
+
+  let clientPhone = onlyDigits(
+    text(req.body?.client_phone, 30) || text(req.body?.phone, 30) || ""
+  );
+  if (clientPhone.length < 10 || clientPhone.length > 11) clientPhone = "11999999999";
+
+  let clientDocument = onlyDigits(
+    text(req.body?.client_document, 20) ||
+      text(req.body?.document, 20) ||
+      text(req.body?.cpf, 20) ||
+      ""
+  );
+  if (clientDocument.length !== 11) {
+    clientDocument = randomCpf();
+  }
 
   const payload: Record<string, unknown> = {
     identifier: externalId,
