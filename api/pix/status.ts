@@ -17,7 +17,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!id || id.length > 200) return json(res, 400, { error: "Identificador inválido." });
 
   try {
-    // Tenta por id (transactionId da OmegaPay). Se falhar, tenta clientIdentifier.
     let upstream = await fetch(
       `${API_BASE}/gateway/transactions?id=${encodeURIComponent(id)}`,
       {
@@ -55,7 +54,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return json(res, upstream.status, { error: message });
     }
 
-    // A API pode retornar o objeto direto ou dentro de data / transaction
     const transaction = result?.data ?? result?.transaction ?? result;
     const rawStatus = String(
       transaction?.status || transaction?.transactionStatus || result?.status || "pending"
